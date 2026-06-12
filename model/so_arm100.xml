@@ -97,6 +97,8 @@
               <geom type="mesh" mesh="Wrist_Pitch_Roll" class="visual"/>
               <geom type="mesh" mesh="Wrist_Pitch_Roll_Motor" class="motor_visual"/>
               <geom type="mesh" mesh="Wrist_Pitch_Roll" class="collision"/>
+              <camera name="cam_wrist" pos="0 -0.08 0.08" xyaxes="-1 0 0 0 -0.25 0.968"
+                fovy="100" resolution="320 240"/>
               <body name="Fixed_Jaw" pos="0 -0.0601 0" euler="0 1.57079 0">
                 <inertial pos="0.00552377 -0.0280167 0.000483583" quat="0.41836 0.620891 -0.350644 0.562599"
                   mass="0.0929859" diaginertia="5.03136e-05 4.64098e-05 2.72961e-05"/>
@@ -110,8 +112,6 @@
                 <geom class="finger_collision" name="fixed_jaw_pad_3" size="0.001 0.01 0.007" pos="0.0126 -0.0768 0"/>
                 <geom class="finger_collision" name="fixed_jaw_pad_4" size="0.001 0.01 0.008" pos="0.0143 -0.0572 0"/>
                 <body name="Moving_Jaw" pos="-0.0202 -0.0244 0" quat="1.34924e-11 -3.67321e-06 1 -3.67321e-06">
-                  <camera name="cam_wrist" pos="0.01 0.02 -0.03" quat="0.5 0.5 0.5 0.5"
-                    fovy="60" resolution="160 120"/>
                   <inertial pos="-0.00161745 -0.0303473 0.000449646" quat="0.696562 0.716737 -0.0239844 -0.0227026"
                     mass="0.0202444" diaginertia="1.11265e-05 8.99651e-06 2.99548e-06"/>
                   <joint name="Jaw" class="Jaw"/>
