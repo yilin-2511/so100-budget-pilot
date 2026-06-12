@@ -22,6 +22,7 @@ python replay.py         # 回放已录制的轨迹
 | `demo_cam.py` | **推荐** — 腕部相机、末端位置显示、关节角度实时显示、重新设计 UI |
 | `demo_basic.py` | 基础遥操作 — tkinter 控制面板 + 键盘，支持轨迹录制 |
 | `replay.py` | 轨迹回放器 — 扫描 `recordings/`，列表选择后物理回放 |
+| [`traj_viewer/`](traj_viewer/) | **离线分析** — 关节曲线、末端 3D 图、机械臂动画、多轨迹对比（无需 MuJoCo） |
 
 ---
 
@@ -108,6 +109,7 @@ so100-budget-pilot/
 ├── demo_cam.py               # 推荐 — 腕部相机 + 增强 UI
 ├── demo_basic.py              # 基础遥操作
 ├── replay.py                  # 轨迹回放器（带选择界面）
+├── traj_viewer/               # 离线分析工具（关节曲线、EE 3D、动画）
 ├── so100_fk.py                # 正运动学（纯 NumPy）
 ├── so100_ik.py                # 逆运动学（ikpy）
 ├── __init__.py                # 模块初始化

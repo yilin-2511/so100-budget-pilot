@@ -22,6 +22,7 @@ python replay.py         # Replay recorded trajectories
 | `demo_cam.py` | **Recommended** — wrist camera, EE position display, real-time joint angles, redesigned UI |
 | `demo_basic.py` | Basic teleoperation — tkinter panel + keyboard, trajectory recording |
 | `replay.py` | Trajectory player — scan `recordings/`, pick from list, replay with physics |
+| [`traj_viewer/`](traj_viewer/) | **Offline analysis** — joint curves, EE 3D plot, arm animation, multi-trajectory compare (no MuJoCo) |
 
 ---
 
@@ -108,6 +109,7 @@ so100-budget-pilot/
 ├── demo_cam.py               # Recommended — wrist camera + enhanced UI
 ├── demo_basic.py              # Basic teleoperation
 ├── replay.py                  # Trajectory replay with picker
+├── traj_viewer/               # Offline analysis tool (joint curves, EE 3D, animation)
 ├── so100_fk.py                # Forward kinematics (pure NumPy)
 ├── so100_ik.py                # Inverse kinematics (ikpy-based)
 ├── __init__.py                # Module init
