@@ -12,9 +12,19 @@ conda activate so100
 # 2. 安装依赖
 pip install -r requirements.txt
 
-# 3. 运行
-python demo_sota.py
+# 3. 运行（任选其一）
+python demo_sota.py      # 基础版 — tkinter 面板 + 键盘控制
+python demo_ui_v2.py     # 增强版 — 重新设计 UI + 腕部相机
+python replay.py          # 轨迹回放，带选择界面
 ```
+
+## 程序说明
+
+| 程序 | 说明 |
+|------|------|
+| `demo_sota.py` | 基础遥操作：tkinter 控制面板 + 键盘，支持轨迹录制 |
+| `demo_ui_v2.py` | **增强版**：重新设计 UI，新增模式指示灯、速度滑块、关节角度实时显示、腕部相机 |
+| `replay.py` | 轨迹回放器：扫描 `recordings/` 中的轨迹，列表选择后物理回放 |
 
 ## 操控方式
 
@@ -39,6 +49,26 @@ python demo_sota.py
 - **Joint 模式**：点任意关节按钮进入。直接关节空间控制。切回 EE 模式时自动锁当前位姿。
 - **夹爪**：始终可用，不受 EE/Joint 模式限制。
 
+## demo_ui_v2.py — 增强 UI 与腕部相机
+
+重新设计控制面板，提供实时视觉反馈：
+
+- **模式指示灯**：EE 模式（蓝色）/ Joint 模式（绿色），一目了然
+- **速度滑块**：末端移动速度 50–300 mm/s 可调
+- **关节角度显示**：5 个关节角的实时数值显示
+- **EE 按钮颜色区分**：方向按钮用颜色区分，防误触
+- **键盘快捷键提示**：面板内嵌快捷键参考
+- **HOME 二次确认**：弹窗确认，防止误触复位
+
+**腕部相机**：将内置 `cam_wrist` 相机画面渲染至 OpenCV 窗口（~15 FPS），提供夹爪与操作区域的第一人称视图。
+
+## replay.py — 轨迹回放
+
+- 扫描 `recordings/` 中的 `.npz` 轨迹文件，按时间倒序排列
+- tkinter 选择界面：点选轨迹即可开始回放
+- 完整物理交互回放：物块可被碰撞、推动
+- 回放结束后返回选择界面，可继续选下一个
+
 ## 核心特性
 
 - **仅位置 IK**：3 个约束 / 5 自由度 —— 快速稳定。夹爪姿态由求解器贴近初始猜测自然保持。
@@ -52,18 +82,20 @@ python demo_sota.py
 
 ```
 so100-budget-pilot/
-├── demo_sota.py          # 主程序：遥操作
-├── so100_fk.py           # 正运动学（纯 NumPy）
-├── so100_ik.py           # 逆运动学（ikpy）
-├── __init__.py           # 模块初始化
-├── requirements.txt      # Python 依赖
-├── README.md             # 英文说明
-├── README_CN.md          # 中文说明（本文）
+├── demo_sota.py              # 基础遥操作
+├── demo_ui_v2.py             # 增强遥操作（UI v2 + 腕部相机）
+├── replay.py                 # 轨迹回放器（带选择界面）
+├── so100_fk.py               # 正运动学（纯 NumPy）
+├── so100_ik.py               # 逆运动学（ikpy）
+├── __init__.py               # 模块初始化
+├── requirements.txt          # Python 依赖
+├── README.md                 # 英文说明
+├── README_CN.md              # 中文说明（本文）
 ├── model/
 │   ├── so100_pick_place.xml   # MuJoCo 场景（桌面 + 方块）
 │   ├── so_arm100.xml          # SO-ARM100 机械臂模型
 │   └── assets/                # 网格文件 (.stl)
-└── recordings/           # 录制的轨迹 (.npz)
+└── recordings/               # 录制的轨迹 (.npz)
 ```
 
 ## 环境要求
@@ -72,6 +104,7 @@ so100-budget-pilot/
 - MuJoCo ≥ 3.0
 - ikpy ≥ 3.4
 - NumPy ≥ 1.26
+- opencv-python ≥ 4.0（`demo_ui_v2.py` 腕部相机需要）
 - tkinter（Python 自带）
 
 ## 录制与回放
@@ -83,6 +116,8 @@ so100-budget-pilot/
 ```
 [时间, qpos(6), ctrl(6), ee_x, ee_y, ee_z, ee_qw, ee_qx, ee_qy, ee_qz]
 ```
+
+回放命令：`python replay.py`，从列表中点选轨迹即可播放。
 
 ## 致谢
 
