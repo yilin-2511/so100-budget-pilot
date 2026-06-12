@@ -92,11 +92,12 @@ tkinter panel with EE XY/Z buttons, joint ± buttons, jaw ± buttons, REC / HOME
 
 ## Key Features (all programs)
 
-- **Position-only IK**: 3 constraints on 5 DOF — fast and stable. Orientation stays close to current pose via initial guess proximity.
-- **Hybrid Intuitive Frame** (ICRA 2024): Forward = ground-projected gripper Z, left = perpendicular, up = world Z. Directions feel intuitive regardless of gripper orientation.
-- **Single-loop architecture**: Control and physics synced in one `while` loop — no jitter.
-- **dt-scaled movement**: Constant EE speed (100 mm/s) regardless of simulation frame rate.
-- **Time interpolation**: IK results linearly interpolated over 50 ms for smooth joint motion.
+- **Position-only IK**: 3 constraints on 5 DOF — fast and stable. Orientation drifts very little due to high-frequency re-solving (20 Hz).
+- **Time interpolation**: IK results linearly smoothed over 50 ms — no joint snapping even when IK output jumps.
+- **Hybrid Intuitive Frame** (ICRA 2024): Forward = ground-projected gripper Z. Directions always feel intuitive regardless of gripper orientation.
+- **Single-loop + dt-scaled**: Synced physics/control in one `while` loop. Constant EE speed (100 mm/s) immune to frame-rate jitter.
+
+> **Why does it feel so smooth?** Position-only IK (fast, minimal constraints) + time interpolation (absorbs IK jitter) + Hybrid Frame (intuitive directions) + single-loop (no threading artifacts).
 
 ---
 
