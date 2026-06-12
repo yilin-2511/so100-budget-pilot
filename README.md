@@ -1,82 +1,104 @@
 # SO-ARM100 SOTA Teleoperation
 
-Single-loop EE teleoperation for the SO-ARM100 robotic arm in MuJoCo simulation. Position-only IK + Hybrid Intuitive Frame + time interpolation.
+SO-ARM100 robotic arm teleoperation in MuJoCo simulation. Position-only IK + Hybrid Intuitive Frame + time interpolation.
 
 ## Quick Start
 
 ```bash
-# 1. Create and activate conda environment
 conda create -n so100 python=3.11 -y
 conda activate so100
-
-# 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Run (choose one)
-python demo_cam.py        # Recommended — wrist camera + enhanced UI
-python demo_basic.py      # Basic version — tkinter panel + keyboard
-python replay.py          # Trajectory replay with picker UI
+# Run (pick one)
+python demo_cam.py       # Recommended — wrist camera + enhanced UI
+python demo_basic.py     # Minimal version — tkinter panel + keyboard
+python replay.py         # Replay recorded trajectories
 ```
 
 ## Programs
 
 | Program | Description |
 |---------|-------------|
-| `demo_cam.py` | **Recommended**: wrist camera + redesigned UI, mode indicator, speed slider, recording |
-| `demo_basic.py` | Basic teleoperation: tkinter panel + keyboard control, trajectory recording |
-| `replay.py` | Trajectory player: scan `recordings/`, pick from list, replay with physics |
+| `demo_cam.py` | **Recommended** — wrist camera, EE position display, real-time joint angles, redesigned UI |
+| `demo_basic.py` | Basic teleoperation — tkinter panel + keyboard, trajectory recording |
+| `replay.py` | Trajectory player — scan `recordings/`, pick from list, replay with physics |
 
-## Controls
-
-### Keyboard (works even when MuJoCo window is focused)
-
-| Key | Action |
-|-----|--------|
-| ↑ ↓ ← → | Move EE in XY (Hybrid Frame) |
-
-### tkinter Panel
-
-| Section | Controls | Action |
-|---------|----------|--------|
-| End-Effector | XY pad, Z buttons | Move EE position |
-| Joints | +/- buttons for 5 joints | Direct joint control |
-| Jaw | +/- buttons | Gripper open/close |
-| Bottom | REC / HOME | Record trajectory / Reset scene |
-
-### Control Modes
-
-- **EE mode** (default): Press any EE button → position-only IK moves the arm. Hybrid Frame directions adapt to gripper orientation.
-- **Joint mode**: Press any Joint button → direct joint-space control. Switch back to EE to lock the new pose.
-- **Jaw**: Always active, independent of mode.
+---
 
 ## demo_cam.py — Wrist Camera & Enhanced UI
 
-Redesigned control panel with real-time visual feedback:
+### Keyboard Shortcuts (global — works even when MuJoCo window is focused)
 
-- **Mode indicator**: EE mode (blue) vs Joint mode (green) — always visible
-- **Speed slider**: Adjust EE movement speed from 50–300 mm/s
-- **Joint angle display**: Real-time numeric readout of all 5 joint angles
-- **Color-coded EE buttons**: Direction buttons visually distinguished
-- **Keyboard shortcut reference**: On-screen cheat sheet
-- **HOME confirmation dialog**: Prevent accidental resets
+| Key | Action |
+|-----|--------|
+| **Arrow keys** ↑ ↓ ← → | Move EE in XY (Hybrid Frame directions) |
+| **Shift** | Move EE up (+Z) |
+| **Ctrl** | Move EE down (−Z) |
+| **<** (comma) | Close jaw |
+| **>** (period) | Open jaw |
 
-**Wrist camera**: Renders the onboard `cam_wrist` camera to an OpenCV window at ~15 FPS, giving a first-person view of the gripper and workspace.
+Shortcuts displayed on-screen in the tkinter top bar for reference.
+
+### tkinter Panel
+
+| Section | Content |
+|---------|---------|
+| **Top bar** | Mode indicator (● EE blue / ● JOINT purple) + keyboard cheat sheet |
+| **End-Effector** | Direction buttons (+X/−X/+Y/−Y/+Z/−Z) + live actual/target position readout |
+| **Joints** | 5 joints (Rotation, Pitch, Elbow, Wrist_Pitch, Wrist_Roll) — ± buttons + real-time angle display |
+| **Bottom** | ⏺ REC (record trajectory) / RESET (restore home pose) / status bar |
+
+### Control Modes
+
+- **EE mode** (default, blue indicator): Press any EE direction button or arrow key. Position-only IK drives the arm via Hybrid Intuitive Frame. IK solved at 20 Hz, linearly interpolated over 50 ms for smooth motion. EE speed = 100 mm/s.
+- **Joint mode** (purple indicator): Press any Joint ± button. Direct joint-space control at 1.0 rad/s. Switching back to EE mode locks the current pose as new IK target.
+- **Jaw**: Controlled via keyboard **<** / **>** keys, always active regardless of mode (1.0 rad/s).
+
+### Wrist Camera
+
+- Renders the onboard `cam_wrist` to a separate OpenCV window ("Wrist Camera")
+- Offscreen render at 960×720, displayed at ~15 FPS
+- Provides first-person view of the gripper and workspace
+
+### Other Features
+
+- **EE position display**: Actual (from physics) vs target (from IK) shown side-by-side in mm
+- **Joint angle display**: Real-time numeric readout of all 5 joint angles in radians
+- **Overhead camera**: MuJoCo viewer set to top-down view of the workspace
+- Trajectory recording: **REC** → name prompt → operate → **STOP** → saves `.npz` to `recordings/`
+
+---
+
+## demo_basic.py — Minimal Teleoperation
+
+Same control engine, simpler UI:
+
+| Key (keyboard) | Action |
+|----------------|--------|
+| Arrow keys ↑ ↓ ← → | Move EE in XY (Hybrid Frame) |
+
+tkinter panel with EE XY/Z buttons, joint ± buttons, jaw ± buttons, REC / HOME.
+
+---
 
 ## replay.py — Trajectory Replay
 
-- Scans `recordings/` for saved `.npz` trajectories, sorted by most recent
-- tkinter picker UI: select a trajectory from the list, click to start replay
-- Replays with full physics interaction — cube can be pushed, collided, etc.
-- Loop back to picker after replay completes
+- Scans `recordings/` for `.npz` files, sorted by most recent
+- tkinter picker UI: select a trajectory → play
+- Replays with full physics — cube can be pushed and collided
+- Returns to picker after playback ends
 
-## Key Features
+---
 
-- **Position-only IK**: 3 constraints on 5 DOF — fast and stable. Orientation maintained naturally by solver proximity.
-- **Hybrid Intuitive Frame** (ICRA 2024): Forward = ground-projected gripper Z. Directions feel intuitive regardless of gripper orientation.
+## Key Features (all programs)
+
+- **Position-only IK**: 3 constraints on 5 DOF — fast and stable. Orientation stays close to current pose via initial guess proximity.
+- **Hybrid Intuitive Frame** (ICRA 2024): Forward = ground-projected gripper Z, left = perpendicular, up = world Z. Directions feel intuitive regardless of gripper orientation.
 - **Single-loop architecture**: Control and physics synced in one `while` loop — no jitter.
-- **dt-scaled movement**: Constant EE speed regardless of simulation frame rate.
-- **Time interpolation**: Joint commands smoothly interpolated over 50ms between IK solves.
-- **Trajectory recording**: Named `.npz` files saved to `recordings/`.
+- **dt-scaled movement**: Constant EE speed (100 mm/s) regardless of simulation frame rate.
+- **Time interpolation**: IK results linearly interpolated over 50 ms for smooth joint motion.
+
+---
 
 ## File Structure
 
@@ -84,18 +106,16 @@ Redesigned control panel with real-time visual feedback:
 so100-budget-pilot/
 ├── demo_cam.py               # Recommended — wrist camera + enhanced UI
 ├── demo_basic.py              # Basic teleoperation
-├── replay.py                 # Trajectory replay with picker
-├── so100_fk.py               # Forward kinematics (pure NumPy)
-├── so100_ik.py               # Inverse kinematics (ikpy-based)
-├── __init__.py               # Module init
-├── requirements.txt          # Python dependencies
-├── README.md
-├── README_CN.md
+├── replay.py                  # Trajectory replay with picker
+├── so100_fk.py                # Forward kinematics (pure NumPy)
+├── so100_ik.py                # Inverse kinematics (ikpy-based)
+├── __init__.py                # Module init
+├── requirements.txt           # Python dependencies
 ├── model/
 │   ├── so100_pick_place.xml   # MuJoCo scene (table + cube)
 │   ├── so_arm100.xml          # SO-ARM100 robot model
 │   └── assets/                # Mesh files (.stl)
-└── recordings/               # Saved trajectories (.npz)
+└── recordings/                # Saved trajectories (.npz)
 ```
 
 ## Requirements
@@ -104,14 +124,15 @@ so100-budget-pilot/
 - MuJoCo ≥ 3.0
 - ikpy ≥ 3.4
 - NumPy ≥ 1.26
-- opencv-python ≥ 4.0 (for wrist camera in `demo_cam.py`)
-- tkinter (bundled with Python on most platforms)
+- opencv-python ≥ 4.0 (`demo_cam.py` wrist camera)
+- tkinter (bundled with Python)
 
-## Recording & Replay
+## Trajectory Format
 
-Click **REC** → enter a name → operate the arm → click **STOP**.
-Trajectories save to `recordings/` as `.npz` files.
+Recorded `.npz` files contain a 20-column array per frame:
 
-Replay with: `python replay.py` — select from the list UI.
+```
+[time, qpos(6), ctrl(6), ee_x, ee_y, ee_z, ee_qw, ee_qx, ee_qy, ee_qz]
+```
 
-Format per frame: `[time, qpos(6), ctrl(6), ee_xyz(3), ee_quat(4)]` — 20 columns total.
+Replay: `python replay.py` → select from list → play.
