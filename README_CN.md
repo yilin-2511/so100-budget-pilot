@@ -13,8 +13,8 @@ conda activate so100
 pip install -r requirements.txt
 
 # 3. 运行（任选其一）
-python demo_sota.py      # 基础版 — tkinter 面板 + 键盘控制
-python demo_ui_v2.py     # 增强版 — 重新设计 UI + 腕部相机
+python demo_cam.py        # 推荐 — 腕部相机 + 增强 UI
+python demo_basic.py      # 基础版 — tkinter 面板 + 键盘控制
 python replay.py          # 轨迹回放，带选择界面
 ```
 
@@ -22,8 +22,8 @@ python replay.py          # 轨迹回放，带选择界面
 
 | 程序 | 说明 |
 |------|------|
-| `demo_sota.py` | 基础遥操作：tkinter 控制面板 + 键盘，支持轨迹录制 |
-| `demo_ui_v2.py` | **增强版**：重新设计 UI，新增模式指示灯、速度滑块、关节角度实时显示、腕部相机 |
+| `demo_cam.py` | **推荐**：腕部相机 + 新 UI，模式指示灯、速度滑块、关节实时显示、轨迹录制 |
+| `demo_basic.py` | 基础遥操作：tkinter 控制面板 + 键盘，支持轨迹录制 |
 | `replay.py` | 轨迹回放器：扫描 `recordings/` 中的轨迹，列表选择后物理回放 |
 
 ## 操控方式
@@ -49,7 +49,7 @@ python replay.py          # 轨迹回放，带选择界面
 - **Joint 模式**：点任意关节按钮进入。直接关节空间控制。切回 EE 模式时自动锁当前位姿。
 - **夹爪**：始终可用，不受 EE/Joint 模式限制。
 
-## demo_ui_v2.py — 增强 UI 与腕部相机
+## demo_cam.py — 腕部相机与增强 UI
 
 重新设计控制面板，提供实时视觉反馈：
 
@@ -82,8 +82,8 @@ python replay.py          # 轨迹回放，带选择界面
 
 ```
 so100-budget-pilot/
-├── demo_sota.py              # 基础遥操作
-├── demo_ui_v2.py             # 增强遥操作（UI v2 + 腕部相机）
+├── demo_cam.py               # 主推 — 腕部相机 + 增强 UI
+├── demo_basic.py              # 基础遥操作
 ├── replay.py                 # 轨迹回放器（带选择界面）
 ├── so100_fk.py               # 正运动学（纯 NumPy）
 ├── so100_ik.py               # 逆运动学（ikpy）
@@ -104,7 +104,7 @@ so100-budget-pilot/
 - MuJoCo ≥ 3.0
 - ikpy ≥ 3.4
 - NumPy ≥ 1.26
-- opencv-python ≥ 4.0（`demo_ui_v2.py` 腕部相机需要）
+- opencv-python ≥ 4.0（`demo_cam.py` 腕部相机需要）
 - tkinter（Python 自带）
 
 ## 录制与回放

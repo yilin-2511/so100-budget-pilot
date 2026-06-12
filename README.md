@@ -13,8 +13,8 @@ conda activate so100
 pip install -r requirements.txt
 
 # 3. Run (choose one)
-python demo_sota.py      # Basic version — tkinter panel + keyboard
-python demo_ui_v2.py     # Enhanced version — redesigned UI + wrist camera
+python demo_cam.py        # Recommended — wrist camera + enhanced UI
+python demo_basic.py      # Basic version — tkinter panel + keyboard
 python replay.py          # Trajectory replay with picker UI
 ```
 
@@ -22,8 +22,8 @@ python replay.py          # Trajectory replay with picker UI
 
 | Program | Description |
 |---------|-------------|
-| `demo_sota.py` | Basic teleoperation: tkinter panel + keyboard control, trajectory recording |
-| `demo_ui_v2.py` | **Enhanced**: redesigned UI with mode indicator, speed slider, real-time joint display, wrist camera |
+| `demo_cam.py` | **Recommended**: wrist camera + redesigned UI, mode indicator, speed slider, recording |
+| `demo_basic.py` | Basic teleoperation: tkinter panel + keyboard control, trajectory recording |
 | `replay.py` | Trajectory player: scan `recordings/`, pick from list, replay with physics |
 
 ## Controls
@@ -49,7 +49,7 @@ python replay.py          # Trajectory replay with picker UI
 - **Joint mode**: Press any Joint button → direct joint-space control. Switch back to EE to lock the new pose.
 - **Jaw**: Always active, independent of mode.
 
-## demo_ui_v2.py — Enhanced UI & Wrist Camera
+## demo_cam.py — Wrist Camera & Enhanced UI
 
 Redesigned control panel with real-time visual feedback:
 
@@ -82,8 +82,8 @@ Redesigned control panel with real-time visual feedback:
 
 ```
 so100-budget-pilot/
-├── demo_sota.py              # Basic teleoperation
-├── demo_ui_v2.py             # Enhanced teleoperation (UI v2 + wrist camera)
+├── demo_cam.py               # Recommended — wrist camera + enhanced UI
+├── demo_basic.py              # Basic teleoperation
 ├── replay.py                 # Trajectory replay with picker
 ├── so100_fk.py               # Forward kinematics (pure NumPy)
 ├── so100_ik.py               # Inverse kinematics (ikpy-based)
@@ -104,7 +104,7 @@ so100-budget-pilot/
 - MuJoCo ≥ 3.0
 - ikpy ≥ 3.4
 - NumPy ≥ 1.26
-- opencv-python ≥ 4.0 (for wrist camera in `demo_ui_v2.py`)
+- opencv-python ≥ 4.0 (for wrist camera in `demo_cam.py`)
 - tkinter (bundled with Python on most platforms)
 
 ## Recording & Replay
