@@ -1,4 +1,4 @@
-# SO-ARM100 SOTA Teleoperation
+# SO-ARM100 BUDGET Teleoperation
 
 SO-ARM100 robotic arm teleoperation in MuJoCo simulation. Position-only IK + Hybrid Intuitive Frame + time interpolation.
 
