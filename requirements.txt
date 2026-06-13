@@ -2,3 +2,6 @@ mujoco>=3.0
 numpy>=1.26
 ikpy>=3.4
 opencv-python>=4.0
+lerobot
+pandas
+av

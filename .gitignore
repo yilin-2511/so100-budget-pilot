@@ -1,4 +1,6 @@
 __pycache__/
 *.pyc
 recordings/
+datasets/
+checkpoints/
 .DS_Store

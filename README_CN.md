@@ -10,18 +10,20 @@ conda activate so100
 pip install -r requirements.txt
 
 # 运行（任选其一）
-python demo_cam.py       # 推荐 — 腕部相机 + 增强 UI
-python demo_basic.py     # 基础版 — tkinter 面板 + 键盘控制
-python replay.py         # 回放已录制的轨迹
+python demo_cam.py            # 腕部相机 + 增强 UI
+python demo_lerobot_record.py # ★ 推荐 — 遥操作 + 直接录制 LeRobot 数据集
+python demo_basic.py          # 基础版 — tkinter 面板 + 键盘控制
+python replay.py              # 回放已录制的轨迹 (.npz)
 ```
 
 ## 程序说明
 
 | 程序 | 说明 |
 |------|------|
-| `demo_cam.py` | **推荐** — 腕部相机、末端位置显示、关节角度实时显示、重新设计 UI |
+| `demo_lerobot_record.py` | **★ 推荐** — 遥操作 + 直接录制 LeRobotDataset（MP4 视频 + 关节数据），暗色主题 UI |
+| `demo_cam.py` | 腕部相机、末端位置显示、关节角度实时显示、重新设计 UI |
 | `demo_basic.py` | 基础遥操作 — tkinter 控制面板 + 键盘，支持轨迹录制 |
-| `replay.py` | 轨迹回放器 — 扫描 `recordings/`，列表选择后物理回放 |
+| `replay.py` | 轨迹回放器 — 扫描 `recordings/`，列表选择后物理回放 (.npz) |
 | [`traj_viewer/`](traj_viewer/) | **离线分析** — 关节曲线、末端 3D 图、机械臂动画、多轨迹对比（无需 MuJoCo） |
 
 ---
@@ -70,6 +72,62 @@ python replay.py         # 回放已录制的轨迹
 
 ---
 
+## demo_lerobot_record.py — LeRobot 数据集录制
+
+键盘遥操作 + 直接写入 LeRobotDataset v3。输出 MP4 视频 + Parquet 关节数据，可直接用于 ACT/BC 训练。
+
+### 快速运行
+
+```bash
+python demo_lerobot_record.py
+```
+
+三个窗口：wrist camera + 暗色主题 tkinter 面板 + MuJoCo 机器人。
+
+### 操作流程
+
+1. 按 **⏺ REC** → 开始录制
+2. 键盘操控机械臂完成 pick-place
+3. 按 **⏹ STOP** → 保存 episode，机械臂自动回 HOME
+4. 按 **✗ DISCARD**（或 Z 键）→ 丢弃当前 episode
+5. 重复至完成 → Q/ESC 退出并 finalize
+
+每次启动自动创建新数据集目录（`datasets/so100_sim_1`、`_2`…），旧数据不会被覆盖。
+
+### 键盘控制
+
+| 按键 | 功能 |
+|------|------|
+| ↑↓←→ | 末端 XY 移动（混合直觉坐标系） |
+| Shift / Ctrl | 末端 Z 升降 |
+| `,` / `.` | 夹爪关/开 |
+| Z | 丢弃当前 episode |
+| R | 切换 EE / JOINT 模式 |
+| Q / ESC | 退出并 finalize |
+
+### 录制规格
+
+| 参数 | 值 |
+|------|-----|
+| FPS | 10（lerobot IL-in-sim 标准） |
+| 分辨率 | 640 × 480 |
+| 视频 | MP4（SVT-AV1，流式编码） |
+| 特征 | `observation.state`（6 关节,度）+ `action`（6 关节,度）+ `observation.images.wrist` |
+| 方块随机化 | 每次 RESET ±3cm XY 偏移 |
+
+### 输出结构
+
+```
+datasets/so100_sim_N/
+├── data/         # Parquet — 关节状态 & 动作
+├── videos/       # MP4 — 腕部相机
+└── meta/         # stats.json, info.json, tasks.parquet
+```
+
+可直接用于 `lerobot-train`。
+
+---
+
 ## demo_basic.py — 基础遥操作
 
 相同控制引擎，更简洁的 UI：
@@ -106,19 +164,22 @@ tkinter 面板包含 EE XYZ 按钮、关节 ± 按钮、夹爪 ± 按钮、REC /
 
 ```
 so100-budget-pilot/
-├── demo_cam.py               # 推荐 — 腕部相机 + 增强 UI
+├── demo_lerobot_record.py     # ★ 推荐 — 遥操作 + LeRobot 数据集录制
+├── demo_cam.py                # 腕部相机 + 增强 UI
 ├── demo_basic.py              # 基础遥操作
-├── replay.py                  # 轨迹回放器（带选择界面）
+├── replay.py                  # 轨迹回放器（带选择界面, .npz）
 ├── traj_viewer/               # 离线分析工具（关节曲线、EE 3D、动画）
 ├── so100_fk.py                # 正运动学（纯 NumPy）
 ├── so100_ik.py                # 逆运动学（ikpy）
 ├── __init__.py                # 模块初始化
 ├── requirements.txt           # Python 依赖
+├── LATEST_DEMO.md             # LeRobot 录制演示完整文档
 ├── model/
 │   ├── so100_pick_place.xml   # MuJoCo 场景（桌面 + 方块）
 │   ├── so_arm100.xml          # SO-ARM100 机械臂模型
 │   └── assets/                # 网格文件 (.stl)
-└── recordings/                # 录制的轨迹 (.npz)
+├── recordings/                # 录制的轨迹 (.npz)
+└── datasets/                  # LeRobot 数据集（gitignored）
 ```
 
 ## 环境要求
@@ -127,7 +188,9 @@ so100-budget-pilot/
 - MuJoCo ≥ 3.0
 - ikpy ≥ 3.4
 - NumPy ≥ 1.26
-- opencv-python ≥ 4.0（`demo_cam.py` 腕部相机需要）
+- opencv-python ≥ 4.0
+- lerobot（`demo_lerobot_record.py` 需要）
+- pandas, av
 - tkinter（Python 自带）
 
 ## 轨迹格式

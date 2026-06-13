@@ -10,18 +10,20 @@ conda activate so100
 pip install -r requirements.txt
 
 # Run (pick one)
-python demo_cam.py       # Recommended — wrist camera + enhanced UI
-python demo_basic.py     # Minimal version — tkinter panel + keyboard
-python replay.py         # Replay recorded trajectories
+python demo_cam.py            # Wrist camera + enhanced UI
+python demo_lerobot_record.py # RECOMMENDED — teleop + direct LeRobot dataset recording
+python demo_basic.py          # Minimal version — tkinter panel + keyboard
+python replay.py              # Replay recorded trajectories (.npz)
 ```
 
 ## Programs
 
 | Program | Description |
 |---------|-------------|
-| `demo_cam.py` | **Recommended** — wrist camera, EE position display, real-time joint angles, redesigned UI |
+| `demo_lerobot_record.py` | **Recommended** — teleop + direct LeRobotDataset recording (MP4 video + joint data), dark theme UI |
+| `demo_cam.py` | Wrist camera, EE position display, real-time joint angles, redesigned UI |
 | `demo_basic.py` | Basic teleoperation — tkinter panel + keyboard, trajectory recording |
-| `replay.py` | Trajectory player — scan `recordings/`, pick from list, replay with physics |
+| `replay.py` | Trajectory player — scan `recordings/`, pick from list, replay with physics (.npz) |
 | [`traj_viewer/`](traj_viewer/) | **Offline analysis** — joint curves, EE 3D plot, arm animation, multi-trajectory compare (no MuJoCo) |
 
 ---
@@ -70,6 +72,62 @@ Shortcuts displayed on-screen in the tkinter top bar for reference.
 
 ---
 
+## demo_lerobot_record.py — LeRobot Dataset Recording
+
+Keyboard teleop + direct LeRobotDataset v3 recording. Writes MP4 video + Parquet joint data ready for ACT/BC training.
+
+### Quick Run
+
+```bash
+python demo_lerobot_record.py
+```
+
+Three windows open: wrist camera, dark-theme tkinter panel, and the robot in MuJoCo.
+
+### Workflow
+
+1. Press **⏺ REC** → recording starts
+2. Keyboard-teleop the arm (pick → move → place)
+3. Press **⏹ STOP** → episode saved, arm auto-resets to home
+4. Press **✗ DISCARD** (or Z key) to dump the current episode
+5. Repeat until done → Q/ESC to finalize
+
+Each run creates a new dataset directory (`datasets/so100_sim_1`, `_2`, …). Previous data is never overwritten.
+
+### Keyboard Controls
+
+| Key | Action |
+|-----|--------|
+| ↑↓←→ | EE XY move (Hybrid Intuitive Frame) |
+| Shift / Ctrl | EE Z up / down |
+| `,` / `.` | Jaw close / open |
+| Z | Discard current episode |
+| R | Toggle EE / JOINT mode |
+| Q / ESC | Quit & finalize |
+
+### Recording Specs
+
+| Parameter | Value |
+|-----------|-------|
+| FPS | 10 (lerobot IL-in-sim standard) |
+| Resolution | 640 × 480 |
+| Video | MP4 (SVT-AV1, streaming encoding) |
+| Features | `observation.state` (6 joints, deg) + `action` (6 joints, deg) + `observation.images.wrist` |
+| Cube randomization | ±3 cm XY each reset |
+
+### Output Structure
+
+```
+datasets/so100_sim_N/
+├── data/         # Parquet — joint states & actions
+├── videos/       # MP4 — wrist camera
+└── meta/         # stats.json, info.json, tasks.parquet
+```
+
+Ready for `lerobot-train` as-is.
+
+---
+
 ## demo_basic.py — Minimal Teleoperation
 
 Same control engine, simpler UI:
@@ -106,19 +164,22 @@ tkinter panel with EE XY/Z buttons, joint ± buttons, jaw ± buttons, REC / HOME
 
 ```
 so100-budget-pilot/
-├── demo_cam.py               # Recommended — wrist camera + enhanced UI
+├── demo_lerobot_record.py     # ★ Recommended — teleop + LeRobot dataset recording
+├── demo_cam.py                # Wrist camera + enhanced UI
 ├── demo_basic.py              # Basic teleoperation
-├── replay.py                  # Trajectory replay with picker
+├── replay.py                  # Trajectory replay with picker (.npz)
 ├── traj_viewer/               # Offline analysis tool (joint curves, EE 3D, animation)
 ├── so100_fk.py                # Forward kinematics (pure NumPy)
 ├── so100_ik.py                # Inverse kinematics (ikpy-based)
 ├── __init__.py                # Module init
 ├── requirements.txt           # Python dependencies
+├── LATEST_DEMO.md             # Full documentation for the LeRobot recording demo
 ├── model/
 │   ├── so100_pick_place.xml   # MuJoCo scene (table + cube)
 │   ├── so_arm100.xml          # SO-ARM100 robot model
 │   └── assets/                # Mesh files (.stl)
-└── recordings/                # Saved trajectories (.npz)
+├── recordings/                # Saved trajectories (.npz)
+└── datasets/                  # LeRobot datasets (gitignored)
 ```
 
 ## Requirements
@@ -127,7 +188,9 @@ so100-budget-pilot/
 - MuJoCo ≥ 3.0
 - ikpy ≥ 3.4
 - NumPy ≥ 1.26
-- opencv-python ≥ 4.0 (`demo_cam.py` wrist camera)
+- opencv-python ≥ 4.0
+- lerobot (`demo_lerobot_record.py`)
+- pandas, av
 - tkinter (bundled with Python)
 
 ## Trajectory Format
