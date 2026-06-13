@@ -4,14 +4,14 @@
 
 ## 程序
 
-**文件**: `d:\robot\experiments\bc_training\demo_lerobot_record.py`
+**文件**: `demo_lerobot_record.py`
 
 键盘遥操作 + 直接写入 LeRobotDataset（跳过 .npz 中转），适配 Intel Iris Xe 集成显卡。
 
 ### 运行
 
 ```powershell
-D:\conda\envs\robot_sim\python.exe D:\robot\experiments\bc_training\demo_lerobot_record.py
+python demo_lerobot_record.py
 ```
 
 ### 界面
