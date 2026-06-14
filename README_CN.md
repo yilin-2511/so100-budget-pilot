@@ -158,6 +158,28 @@ lerobot-train \
 
 ---
 
+## traj_viewer/ — 轨迹分析工具
+
+离线可视化分析（无需启动 MuJoCo）。加载 `.npz` 录制数据，多维度查看轨迹质量。
+
+### 功能
+
+- **关节角度曲线**：6 个关节角随时间变化
+- **EE 3D 轨迹图**：叠加 FK 推算路径 vs MuJoCo 真值（验证 FK 精度）
+- **机械臂动画**：从录制 qpos 还原 6-DOF 运动
+- **多轨迹对比**：多条录制叠加在同一张图上
+- **统计弹窗**：各关节范围、速度统计、FK 误差指标
+- **命令行模式**：`python traj_viewer/main.py recordings/traj_xxxx.npz` 快速看统计
+
+### 用法
+
+```bash
+python traj_viewer/main.py                    # GUI — 浏览选择轨迹
+python traj_viewer/main.py <file.npz>         # CLI — 快速输出统计
+```
+
+---
+
 ## 核心架构（所有程序共用）
 
 - **仅位置 IK**：3 约束 / 5 自由度 — 快速稳定。20 Hz 高频求解，姿态漂移可忽略。

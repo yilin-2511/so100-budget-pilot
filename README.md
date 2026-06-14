@@ -158,6 +158,28 @@ Same control engine, simpler UI. Arrow keys for EE XY. tkinter panel with EE XYZ
 
 ---
 
+## traj_viewer/ — Trajectory Analysis
+
+Offline analysis GUI (no MuJoCo needed). Load `.npz` recordings and inspect them visually.
+
+### Features
+
+- **Joint angle curves**: Plot all 6 joint angles over time
+- **EE 3D trajectory**: Overlay FK-computed EE path vs MuJoCo ground truth (verifies FK accuracy)
+- **Arm animation**: Animate the 6-DOF arm from recorded qpos
+- **Multi-trajectory compare**: Overlay multiple recordings on the same plot
+- **Statistics popup**: Per-joint range, velocity stats, FK error metrics
+- **CLI mode**: `python traj_viewer/main.py recordings/traj_xxxx.npz` for quick stats
+
+### Usage
+
+```bash
+python traj_viewer/main.py                    # GUI — browse & pick recordings
+python traj_viewer/main.py <file.npz>         # CLI — quick stats dump
+```
+
+---
+
 ## Core Architecture (all programs)
 
 - **Position-only IK**: 3 constraints on 5 DOF — fast and stable. 20 Hz re-solving keeps orientation drift negligible.
