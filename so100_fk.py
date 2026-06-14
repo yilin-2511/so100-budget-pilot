@@ -68,3 +68,24 @@ class So100FK:
     def forward_kinematics_5dof(self, q):
         """5-DOF FK → Fixed_Jaw position [x,y,z]."""
         return self.forward_kinematics_5dof_matrix(q)[:3, 3].copy()
+
+    def compute_all_joint_positions(self, q):
+        """返回全部 7 个关节点的世界坐标 (含基座 + 6 个关节末端)。
+
+        Args:
+            q: length 6 — [Rotation, Pitch, Elbow, Wrist_Pitch, Wrist_Roll, Jaw]
+
+        Returns:
+            (7, 3) ndarray — 基座 + 6 个关节的世界坐标 (m)
+        """
+        positions = np.zeros((7, 3))
+        T = np.eye(4)
+        for i in range(6):
+            p = self.joint_params[i]
+            T = T @ self._joint_to_4x4(p["translation"], p["rotation"], p["axis"], q[i])
+            positions[i + 1] = T[:3, 3]
+        return positions
+
+
+# Display names for all 7 joint points (used by traj_viewer)
+LINK_NAMES = ["Base", "Rotation", "Pitch", "Elbow", "Wrist_Pitch", "Wrist_Roll", "Gripper"]

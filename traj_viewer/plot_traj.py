@@ -5,13 +5,24 @@
 
 import numpy as np
 import matplotlib
-matplotlib.use("TkAgg")  # 兼容 tkinter 主循环
+matplotlib.use("TkAgg")
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from so100_fk import So100FK, LINK_NAMES
+
+_fk = So100FK()
+
+def __compute_joint_positions(q):
+    return _fk.compute_all_joint_positions(q)
+
+def __compute_ee_pos(q):
+    return _fk.forward_kinematics_5dof(q)
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 
 from load_traj import load_traj
-from fk import compute_joint_positions, LINK_NAMES
+
 
 # ── 中文字体 ──────────────────────────────────────────────
 _FONT = None
@@ -80,12 +91,12 @@ def plot_ee_trajectory(traj):
     红虚线 = FK 推算值（从 qpos 用纯 numpy 计算）
     两条线重合 → FK 参数正确
     """
-    from fk import compute_ee_pos
+    from fk import _compute_ee_pos
 
     # FK 推算（每 10 帧取 1 帧，轨迹数据已高密度冗余）
     step = max(1, traj["n_frames"] // 5000)
     ee_mj = traj["ee_pos"][::step]
-    ee_fk = np.array([compute_ee_pos(traj["qpos"][k]) for k in range(0, traj["n_frames"], step)])
+    ee_fk = np.array([_compute_ee_pos(traj["qpos"][k]) for k in range(0, traj["n_frames"], step)])
 
     fig = plt.figure(figsize=(9, 8))
     ax = fig.add_subplot(111, projection="3d")
@@ -129,12 +140,12 @@ def plot_arm_animation(traj, speed=1.0):
     """
     # 预计算所有帧的关节位置
     all_positions = np.array([
-        compute_joint_positions(traj["qpos"][k]) for k in range(traj["n_frames"])
+        _compute_joint_positions(traj["qpos"][k]) for k in range(traj["n_frames"])
     ])  # (N, 7, 3)
 
     # 预计算 FK 末端位置用于轨迹残影
-    from fk import compute_ee_pos
-    ee_trail = np.array([compute_ee_pos(traj["qpos"][k]) for k in range(traj["n_frames"])])
+    from fk import _compute_ee_pos
+    ee_trail = np.array([_compute_ee_pos(traj["qpos"][k]) for k in range(traj["n_frames"])])
 
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, projection="3d")

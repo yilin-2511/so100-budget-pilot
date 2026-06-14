@@ -1,7 +1,11 @@
 """轨迹统计摘要 — 时长、关节范围、末端行程、FK 误差。"""
 
 import numpy as np
-from fk import compute_ee_pos
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from so100_fk import So100FK
+
+_fk = So100FK()
 
 
 def traj_stats(traj_data):
@@ -36,7 +40,7 @@ def traj_stats(traj_data):
     ee_total = _total_travel(ee_pos)
 
     # ── FK 误差 ──
-    ee_fk = np.array([compute_ee_pos(qpos[k]) for k in range(0, n, max(1, n // 2000))])
+    ee_fk = np.array([_fk.forward_kinematics_5dof(qpos[k]) for k in range(0, n, max(1, n // 2000))])
     ee_sub = ee_pos[::max(1, n // 2000)]
     fk_err = np.linalg.norm(ee_sub - ee_fk, axis=1)
     mean_fk_err = float(np.mean(fk_err))
