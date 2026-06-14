@@ -158,7 +158,10 @@ Same control engine, simpler UI. Arrow keys for EE XY. tkinter panel with EE XYZ
 
 ---
 
-## traj_viewer/ — Trajectory Analysis
+## traj_viewer/ — Trajectory Analysis (.npz only)
+
+> **Note**: traj_viewer only works with `.npz` files from `demo_cam.py` / `demo_basic.py` / `replay.py`.
+> It does **not** work with LeRobot datasets from `demo_lerobot_record.py`. For LeRobot data, use `lerobot-dataset-viz` or `lerobot-train --eval`.
 
 Offline analysis GUI (no MuJoCo needed). Load `.npz` recordings and inspect them visually.
 

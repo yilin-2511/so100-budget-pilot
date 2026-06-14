@@ -158,7 +158,10 @@ lerobot-train \
 
 ---
 
-## traj_viewer/ — 轨迹分析工具
+## traj_viewer/ — 轨迹分析工具（仅 .npz）
+
+> **注意**：traj_viewer 只适用于 `demo_cam.py` / `demo_basic.py` / `replay.py` 生成的 `.npz` 文件。
+> **不兼容** `demo_lerobot_record.py` 的 LeRobot 数据集。LeRobot 数据请使用 `lerobot-dataset-viz` 或 `lerobot-train --eval`。
 
 离线可视化分析（无需启动 MuJoCo）。加载 `.npz` 录制数据，多维度查看轨迹质量。
 
