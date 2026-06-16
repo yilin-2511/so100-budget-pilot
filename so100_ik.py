@@ -8,17 +8,14 @@ from ikpy.link import URDFLink
 import ikpy.chain
 
 try:
-    from .so100_fk import So100FK, JOINT_LIMITS
+    from .so100_fk import So100FK, JOINT_LIMITS, JOINT_PARAMS as _FK_JOINT_PARAMS
 except ImportError:
-    from so100_fk import So100FK, JOINT_LIMITS
+    from so100_fk import So100FK, JOINT_LIMITS, JOINT_PARAMS as _FK_JOINT_PARAMS
 
-# Joint parameters from MuJoCo body quat→RPY (verified FK 0mm error)
+# Derived from so100_fk's canonical JOINT_PARAMS — single source of truth
 _JOINT_PARAMS = [
-    ([0, -0.0452, 0.0165], [ 1.5708, 0, 0],      [0, 1, 0], [-1.92, 1.92]),
-    ([0,  0.1025, 0.0306], [ 1.5708, 0, 0],      [1, 0, 0], [-3.32, 0.174]),
-    ([0,  0.1126, 0.028],  [-1.5708, 0, 0],      [1, 0, 0], [-0.174, 3.14]),
-    ([0,  0.0052, 0.1349], [-1.5708, 0, 0],      [1, 0, 0], [-1.66, 1.66]),
-    ([0, -0.0601, 0],      [0,  1.5708, 0],      [0, 1, 0], [-2.79, 2.79]),
+    (p["translation"], p["rotation"], p["axis"], limits)
+    for p, limits in zip(_FK_JOINT_PARAMS[:5], JOINT_LIMITS[:5])
 ]
 
 
@@ -32,10 +29,11 @@ class So100IK:
 
     def __init__(self):
         # ikpy chain
+        joint_names = ["Rotation", "Pitch", "Elbow", "Wrist_Pitch", "Wrist_Roll"]
         links = []
-        for trans, rpy, axis, bounds in _JOINT_PARAMS:
+        for i, (trans, rpy, axis, bounds) in enumerate(_JOINT_PARAMS):
             link = URDFLink(
-                name="j",
+                name=joint_names[i],
                 origin_translation=trans,
                 origin_orientation=rpy,
                 rotation=axis,
