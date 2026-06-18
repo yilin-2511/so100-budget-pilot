@@ -183,6 +183,55 @@ python traj_viewer/main.py <file.npz>         # CLI — quick stats dump
 
 ---
 
+## `hardware/` — SCS225 Servo Control
+
+Real-time servo tracking and leader-follower programs. Connects MuJoCo simulation to physical SCS225 servos via the driver board.
+
+| Program | Direction | Description |
+|---------|-----------|-------------|
+| `hardware/demo_cam_servo.py` | MuJoCo → Servo | Keyboard teleop + servo tracking (max_relative_target + velocity feedforward) |
+| `hardware/demo_servo_track.py` | MuJoCo → Servo | LeRobot record + servo tracking |
+| `hardware/demo_servo_mirror.py` | Servo → MuJoCo | Passive backdriving — twist the servo, MuJoCo follows (torque-off mode) |
+
+### Quick Run
+
+```bash
+# MuJoCo controls servo (follower mode)
+python hardware/demo_cam_servo.py
+
+# Servo controls MuJoCo (leader mode — torque off, twist by hand)
+python hardware/demo_servo_mirror.py
+```
+
+### Control Features
+
+- **max_relative_target**: 30 steps/frame cap prevents dangerous jumps on reset
+- **Velocity feedforward**: auto-adjusts servo speed based on displacement
+- **Soft landing**: smooth deceleration on large position changes
+- **Periodic readback**: verifies servo tracking accuracy every 500ms
+- **50Hz sync rate**: balanced between smoothness and bus load
+
+### Wiring
+
+```
+PC → USB → Driver Board → TTL Bus → SCS225 Servo(s)
+                                    ├─ White: Signal
+                                    ├─ Red:   VCC (6-8.4V independent power)
+                                    └─ Black: GND
+```
+
+### Servo Specs (Measured)
+
+| Metric | Value |
+|--------|-------|
+| Steady-state precision | ±2 steps (±0.6°) |
+| Single ReadPos latency | ~443μs |
+| 6-servo serial read | ~2.7ms (16% of 60Hz frame) |
+| SyncRead support | ❌ Not supported (SCS protocol v1) |
+| SyncWrite support | ✅ Supported |
+
+---
+
 ## Core Architecture (all programs)
 
 - **Position-only IK**: 3 constraints on 5 DOF — fast and stable. 20 Hz re-solving keeps orientation drift negligible.
@@ -201,6 +250,10 @@ so100-budget-pilot/
 ├── demo_basic.py              # Basic teleop
 ├── replay.py                  # Trajectory replay with picker (.npz)
 ├── traj_viewer/               # Offline analysis tool
+├── hardware/                  # SCS225 servo control (MuJoCo ↔ hardware bridge)
+│   ├── demo_cam_servo.py      #   Keyboard teleop + servo tracking
+│   ├── demo_servo_track.py    #   LeRobot record + servo tracking
+│   └── demo_servo_mirror.py   #   Servo → MuJoCo mirror (leader mode)
 ├── so100_fk.py                # Forward kinematics (pure NumPy)
 ├── so100_ik.py                # Inverse kinematics (ikpy-based)
 ├── requirements.txt           # Python dependencies
