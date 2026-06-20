@@ -289,9 +289,9 @@ def main(cfg: RecordConfig):
     top = tk.Frame(root, bg=ACCENT, height=60)
     top.pack(fill=tk.X); top.pack_propagate(False)
 
-    lbl_mode = tk.Label(top, text="● EE", font=("Arial", 22, "bold"), fg=BLUE, bg=ACCENT)
+    lbl_mode = tk.Label(top, text="● SO-ARM100 Teleop", font=("Arial", 22, "bold"), fg=BLUE, bg=ACCENT)
     lbl_mode.pack(side=tk.LEFT, padx=(20, 0))
-    tk.Label(top, text="↑↓←→ = XY   Shift/Ctrl = Z   ,/. = Jaw   Z = Discard   R = Mode",
+    tk.Label(top, text="↑↓←→ = XY   Shift/Ctrl = Z   ,/. = Jaw   Z = Discard",
              font=("Arial", 11), fg=TEXT_DIM, bg=ACCENT).pack(side=tk.RIGHT, padx=20)
 
     body = tk.Frame(root, bg=BG)

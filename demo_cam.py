@@ -124,7 +124,7 @@ root.geometry("900x700")
 top = tk.Frame(root, bg=ACCENT, height=52)
 top.pack(fill=tk.X); top.pack_propagate(False)
 
-lbl_mode = tk.Label(top, text="● EE", font=("Arial", 20, "bold"), fg=BLUE, bg=ACCENT)
+lbl_mode = tk.Label(top, text="● SO-ARM100 Teleop", font=("Arial", 20, "bold"), fg=BLUE, bg=ACCENT)
 lbl_mode.pack(side=tk.LEFT, padx=(18, 0))
 
 tk.Label(top, text="↑↓←→ = XY   Shift/Ctrl = Z   ,/. = Jaw",
@@ -270,12 +270,6 @@ lbl_status = tk.Label(info_row, text="Ready", font=("Arial", 14, "bold"),
                        fg=TEXT_DIM, bg=ACCENT, width=30, anchor="center")
 lbl_status.pack()
 
-def _update_mode_indicator():
-    if current_mode[0] == "joint":
-        lbl_mode.config(text="● JOINT", fg=PURPLE)
-    else:
-        lbl_mode.config(text="● EE", fg=BLUE)
-
 def _update_joint_display():
     for j in range(5):
         lbl_joint_vals[j].config(text=f"{data.ctrl[j]:+7.3f}")
@@ -353,7 +347,7 @@ with mujoco.viewer.launch_passive(model, data,
                           data.xpos[ee_body_id].copy(), data.xquat[ee_body_id].copy()]))
 
         if now - last_display_update > 0.10:
-            try: _update_ee_display(); _update_mode_indicator(); _update_joint_display(); last_display_update = now
+            try: _update_ee_display(); _update_joint_display(); last_display_update = now
             except Exception: pass
 
         if now - last_wrist_update > 0.066:
