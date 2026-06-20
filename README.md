@@ -1,5 +1,7 @@
 # SO-ARM100 Budget Pilot — Sim-to-Real Imitation Learning Pipeline
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 SO-ARM100 robotic arm teleoperation & data collection in MuJoCo. Built as the simulation leg of a sim-to-real behavior cloning pipeline: human teleop → dataset recording → ACT/Diffusion training → real robot deployment.
 
 Position-only IK + Hybrid Intuitive Frame + time interpolation. Dark theme tkinter UI. `.npz` + LeRobot v3 dataset recording.

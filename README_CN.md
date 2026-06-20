@@ -1,5 +1,7 @@
 # SO-ARM100 Budget Pilot — Sim-to-Real 模仿学习数据管道
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 SO-ARM100 机械臂 MuJoCo 遥操作与数据采集系统。面向 sim-to-real 行为克隆管线：人类遥操作 → 数据集录制 → ACT/Diffusion 训练 → 实体部署。
 
 仅位置 IK + 混合直觉坐标系 + 时间插值。暗色主题 tkinter UI。支持 `.npz` + LeRobot v3 数据集录制。
