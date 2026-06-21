@@ -15,7 +15,16 @@ import serial.tools.list_ports as _serial_ports
 XML_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "model", "so100_pick_place.xml")
 SERVO_BAUD = 1000000
 SERVO_DIR = -1
-SERVO_MAP = {0: 1}  # joint_idx → servo_id
+# Joint index → Servo ID (daisy-chain order from base to tip)
+SERVO_MAP = {
+    0: 1,   # Rotation (base)
+    1: 2,   # Pitch
+    2: 3,   # Elbow
+    3: 4,   # Wrist_Pitch
+    4: 5,   # Wrist_Roll
+    5: 6,   # Jaw
+    # 6: 7, # Extra (reserved)
+}
 SERVO_TO_JOINT = {v: k for k, v in SERVO_MAP.items()}
 
 # --- 扭矩控制（参考 LeRobot FeetechMotorsBus）---

@@ -22,7 +22,7 @@ _sys.path.insert(0, _servo_sdk_dir)
 from scservo_sdk import *  # noqa
 import serial.tools.list_ports as _serial_ports
 
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from so100_ik import So100IK
 
 # ---------------------------------------------------------------------------
@@ -79,7 +79,16 @@ SERVO_BAUD = 1000000
 SERVO_SPEED = 400
 SERVO_DIR = -1
 SERVO_CENTER_DEG = 150.0
-SERVO_MAP = {0: 1}   # Joint 0 (Rotation) → Servo ID 1
+# Joint index → Servo ID (daisy-chain order from base to tip)
+SERVO_MAP = {
+    0: 1,   # Rotation (base)
+    1: 2,   # Pitch
+    2: 3,   # Elbow
+    3: 4,   # Wrist_Pitch
+    4: 5,   # Wrist_Roll
+    5: 6,   # Jaw
+    # 6: 7, # Extra (reserved)
+}
 
 def init_servo():
     ports = list(_serial_ports.comports())
@@ -104,6 +113,24 @@ def rad_to_servo(rad):
     deg = np.degrees(rad) * SERVO_DIR + SERVO_CENTER_DEG
     tmp = int(round(deg * 1023.0 / 300.0))
     return max(0, min(1023, tmp))
+
+def read_actual_positions(bus, reader, servo_map):
+    """批量读取舵机 Present_Position，返回 {joint_idx: pos}。
+    SCS 协议 v1 不支持 SyncRead，用 GroupSyncRead 逐个加参后一次 txRx。
+    """
+    reader.clearParam()
+    for sid in servo_map.values():
+        reader.addParam(sid)
+    comm = reader.txRxPacket()
+    if comm != COMM_SUCCESS:
+        return {}
+    result = {}
+    for j_idx, sid in servo_map.items():
+        ok, _ = reader.isAvailable(sid, 56, 2)
+        if ok:
+            result[j_idx] = reader.getData(sid, 56, 2)
+    return result
+
 TRAJ_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "recordings")
 os.makedirs(TRAJ_DIR, exist_ok=True)
 
@@ -237,6 +264,7 @@ root.update()
 
 # --- 舵机初始化 ---
 servo_port, servo_bus = init_servo()
+sync_reader = GroupSyncRead(servo_bus, 56, 2) if servo_bus else None  # addr56=Present_Position
 
 _root_hwnd = ctypes.windll.user32.GetParent(root.winfo_id())
 ctypes.windll.imm32.ImmAssociateContext(_root_hwnd, 0)
@@ -282,8 +310,10 @@ def _settle_cube():
         data.ctrl[:6] = [0.0, -1.57, 1.57, 1.57, -1.57, 0.0]
         mujoco.mj_step(model, data)
 
+_force_servo_readback = False  # reset 时置 True，强制下帧读实际位置
+
 def reset_robot():
-    global ik_progress
+    global ik_progress, _force_servo_readback
     for d in ee_active: ee_active[d] = False
     for d in joint_active: joint_active[d] = False
     for d in jaw_active: jaw_active[d] = False
@@ -348,8 +378,14 @@ with mujoco.viewer.launch_passive(model, data,
     last_display_update = time.perf_counter()
     last_wrist_update = time.perf_counter()
     last_servo_sync = 0.0
-    last_servo_target = {}     # 软着陆目标（正常 = 即时，reset = 缓慢逼近）
-    last_servo_readback = 0.0
+    last_servo_target = {}     # 上次发的目标 (帧间平滑用)
+    last_servo_readback = 0.0  # 上次读实际位置的时间
+
+    # 启动时读一次实际位置，避免首帧跳变
+    if servo_bus is not None:
+        actual = read_actual_positions(servo_bus, sync_reader, SERVO_MAP)
+        if actual:
+            last_servo_target = dict(actual)
 
     while viewer.is_running():
         now = time.perf_counter()
@@ -408,14 +444,27 @@ with mujoco.viewer.launch_passive(model, data,
                 cv2.waitKey(1); last_wrist_update = now
             except Exception: pass
 
-        # --- 舵机同步 (50Hz + max_relative_target + 速度前馈 + 读回校验) ---
+        # --- 舵机同步 (50Hz, 混合: 每 100ms 读实际位置对齐基线, 其他帧用速度限制缓冲) ---
         if servo_bus is not None and (now - last_servo_sync) > 0.02:
+            MAX_STEP = 30
+
+            # 每 100ms 读一次实际位置校准基线；reset 后立即读
+            if _force_servo_readback or (now - last_servo_readback > 0.10):
+                actual = read_actual_positions(servo_bus, sync_reader, SERVO_MAP)
+                if actual:
+                    last_servo_target = dict(actual)
+                last_servo_readback = now
+                _force_servo_readback = False
+
             for j_idx, sid in SERVO_MAP.items():
                 target = rad_to_servo(data.ctrl[j_idx])
-                prev = last_servo_target.get(j_idx, target)
+                # 上次发的目标（如果没有就用当前位置兜底）
+                prev = last_servo_target.get(j_idx)
+                if prev is None:
+                    prev = target
+                    last_servo_target[j_idx] = prev
 
-                # max_relative_target: 每帧最多位移 30 步(~9°)，防任意大幅跳变
-                MAX_STEP = 30
+                # 夹差
                 delta = target - prev
                 if abs(delta) <= MAX_STEP:
                     pos_cmd = target
@@ -423,24 +472,20 @@ with mujoco.viewer.launch_passive(model, data,
                     pos_cmd = prev + max(-MAX_STEP, min(MAX_STEP, delta))
                 last_servo_target[j_idx] = pos_cmd
 
-                # 速度前馈
+                # 速度分段: 小步柔顺, 中步适中, 大步缓进 (reset 不暴力追)
                 step = abs(pos_cmd - prev)
-                ff_speed = min(800, max(100, int(step * 50 + 50)))
+                if step <= 5:
+                    ff_speed = 150
+                elif step <= 15:
+                    ff_speed = 300
+                else:
+                    ff_speed = 500
+
                 servo_bus.SyncWritePos(sid, pos_cmd, 0, ff_speed)
 
             servo_bus.groupSyncWrite.txPacket()
             servo_bus.groupSyncWrite.clearParam()
             last_servo_sync = now
-
-            # 读回校验（每 500ms）
-            if now - last_servo_readback > 0.5:
-                for j_idx, sid in SERVO_MAP.items():
-                    actual, result, _ = servo_bus.ReadPos(sid)
-                    if result == COMM_SUCCESS:
-                        err = abs(actual - last_servo_target.get(j_idx, actual))
-                        if err > 20:
-                            print(f"[SERVO] ⚠ J{j_idx} lag: cmd={last_servo_target[j_idx]:4d} actual={actual:4d} err={err:3d}")
-                last_servo_readback = now
 
         mujoco.mj_step(model, data); viewer.sync()
 

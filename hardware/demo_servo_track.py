@@ -27,6 +27,7 @@ _sys.path.insert(0, _servo_sdk_dir)
 from scservo_sdk import *  # noqa
 import serial.tools.list_ports as _serial_ports
 
+_sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from so100_ik import So100IK
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
@@ -65,10 +66,15 @@ SERVO_DIR = -1              # 方向：1 或 -1（已翻转）
 SERVO_CENTER_DEG = 150.0    # 0 rad 对应的舵机角度
 
 # 关节索引 → 舵机 ID 映射 (Joint 0=Rotation, 1=Pitch, 2=Elbow, 3=Wrist_Pitch, 4=Wrist_Roll, 5=Jaw)
+# Daisy-chain order from base to tip: ID 1-6, ID 7 reserved
 SERVO_MAP = {
-    0: 1,   # base Rotation → 舵机 ID=1
-    # 1: 2,   # Pitch → 舵机 ID=2 (待加)
-    # 2: 3,   # Elbow → 舵机 ID=3 (待加)
+    0: 1,   # Rotation (base)
+    1: 2,   # Pitch
+    2: 3,   # Elbow
+    3: 4,   # Wrist_Pitch
+    4: 5,   # Wrist_Roll
+    5: 6,   # Jaw
+    # 6: 7, # Extra (reserved)
 }
 
 def init_servo():
