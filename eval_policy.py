@@ -15,8 +15,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 XML_PATH = os.path.join(HERE, "model", "so100_pick_place.xml")
 HOME_CTRL = [0.0, -1.57, 1.57, 1.57, -1.57, 0.0]
-SETTLE_STEPS = 300
-MAX_STEPS_DEFAULT = 200
+SETTLE_STEPS = 500     # allow cube to fully settle on table
+MAX_STEPS_DEFAULT = 200     # policy queries per episode
+ACTION_REPEAT = 50          # physics steps per policy action (10 FPS @ 0.002s timestep)
 
 # ---------------------------------------------------------------------------
 # Scene helpers (reused from demo_lerobot_record.py)
@@ -71,16 +72,71 @@ def check_success(data, cube_body_id):
 # Policy loading
 # ---------------------------------------------------------------------------
 def load_policy(checkpoint_path, device="cpu"):
-    """Load ACT policy from a lerobot checkpoint directory."""
+    """Load ACT policy + preprocessor + postprocessor from checkpoint."""
     if not os.path.isdir(checkpoint_path):
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
     from lerobot.policies.act.modeling_act import ACTPolicy
+    from lerobot.processor import NormalizerProcessorStep, UnnormalizerProcessorStep
+    import json, safetensors.torch
+
     policy = ACTPolicy.from_pretrained(checkpoint_path, device=device)
     policy.eval()
+    # Enable temporal ensemble for smooth actions (ACT paper, Section IV-A)
+    if policy.config.temporal_ensemble_coeff is None:
+        from lerobot.policies.act.modeling_act import ACTTemporalEnsembler
+        policy.config.temporal_ensemble_coeff = 0.01
+        policy.temporal_ensembler = ACTTemporalEnsembler(
+            policy.config.temporal_ensemble_coeff, policy.config.chunk_size)
+
+    # Load pre/post processor config
+    with open(os.path.join(checkpoint_path, "policy_preprocessor.json")) as f:
+        pre_cfg = json.load(f)
+    with open(os.path.join(checkpoint_path, "policy_postprocessor.json")) as f:
+        post_cfg = json.load(f)
+
+    # Load normalizer tensors (state mean/std for normalization)
+    normalizer_path = os.path.join(
+        checkpoint_path,
+        "policy_preprocessor_step_3_normalizer_processor.safetensors",
+    )
+    normalizer_state = safetensors.torch.load_file(normalizer_path, device="cpu")
+    unnormalizer_path = os.path.join(
+        checkpoint_path,
+        "policy_postprocessor_step_0_unnormalizer_processor.safetensors",
+    )
+    unnormalizer_state = safetensors.torch.load_file(unnormalizer_path, device="cpu")
+
+    # Build stats dict for state (image normalization uses fixed [0,1] range)
+    state_stats = {}
+    for k in list(normalizer_state.keys()):
+        if k.endswith(".mean"):
+            name = k[:-5]
+            state_stats[name] = {
+                "mean": normalizer_state[k],
+                "std": normalizer_state[f"{name}.std"],
+            }
+    state_norm = state_stats.get(
+        "observation.state",
+        {"mean": 0.0, "std": 1.0},
+    )
+
+    action_stats = {}
+    for k in list(unnormalizer_state.keys()):
+        if k.endswith(".mean"):
+            name = k[:-5]
+            action_stats[name] = {
+                "mean": unnormalizer_state[k],
+                "std": unnormalizer_state[f"{name}.std"],
+            }
+    action_norm = action_stats.get(
+        "action",
+        {"mean": 0.0, "std": 1.0},
+    )
+
     print(f"[POLICY] Loaded ACT from {checkpoint_path}")
-    print(f"  device={device}, chunks={policy.config.chunk_size}, "
-          f"obs_steps={policy.config.n_obs_steps}")
-    return policy
+    print(f"  device={device}, chunks={policy.config.chunk_size}")
+
+    return policy, state_norm, action_norm
 
 
 # ---------------------------------------------------------------------------
@@ -106,19 +162,22 @@ def capture_obs(data, j_qpos_ids, wrist_renderer, wrist_cam_id, overhead_rendere
     }
 
 
-def obs_to_tensors(obs_dict, device="cpu"):
-    """Convert numpy observation dict to tensor batch (B=1)."""
+def obs_to_tensors(obs_dict, state_norm, device="cpu"):
+    """Convert numpy observation dict to tensor batch (B=1), with normalization."""
     batch = {}
 
-    # State: (6,) -> (1, 6) float32
-    state = torch.from_numpy(obs_dict["observation.state"]).float().unsqueeze(0).to(device)
+    # State: (6,) -> normalize -> (1, 6) float32
+    state_raw = obs_dict["observation.state"].astype(np.float32)
+    mean = state_norm["mean"].numpy() if hasattr(state_norm["mean"], "numpy") else np.array(state_norm["mean"])
+    std = state_norm["std"].numpy() if hasattr(state_norm["std"], "numpy") else np.array(state_norm["std"])
+    state_normed = (state_raw - mean) / (std + 1e-8)
+    state = torch.from_numpy(state_normed).float().unsqueeze(0).to(device)
 
     # Images: HWC uint8 -> BCHW float32 [0,1]
     for key in ["observation.images.wrist", "observation.images.overhead"]:
         img = obs_dict[key]
-        img_t = torch.from_numpy(img).float().permute(2, 0, 1)  # CHW
-        img_t = img_t / 255.0
-        img_t = img_t.unsqueeze(0).to(device)  # (1, 3, H, W)
+        img_t = torch.from_numpy(img).float().permute(2, 0, 1) / 255.0
+        img_t = img_t.unsqueeze(0).to(device)
         batch[key] = img_t
 
     batch["observation.state"] = state
@@ -154,8 +213,8 @@ def main():
     wrist_renderer = mujoco.Renderer(model, 480, 640)
     overhead_renderer = mujoco.Renderer(model, 240, 320)
 
-    # ---- Load policy ----
-    policy = load_policy(args.checkpoint, device=device)
+    # ---- Load policy + preprocessor ----
+    policy, state_norm, action_norm = load_policy(args.checkpoint, device=device)
 
     # ---- Results ----
     successes = []
@@ -165,11 +224,20 @@ def main():
     viewer = None
     if args.render:
         viewer = mujoco.viewer.launch_passive(model, data, show_left_ui=False, show_right_ui=False)
+        cv2.namedWindow("Wrist Camera", cv2.WINDOW_NORMAL)
+        cv2.namedWindow("Overhead Camera", cv2.WINDOW_NORMAL)
 
     try:
         for ep in range(args.episodes):
             reset_episode(model, data, randomize_xy=args.cube_random_xy)
             policy.reset()
+
+            # 2-second delay: arm stays at home, cube fully settles
+            for _ in range(int(2.0 / 0.002)):  # 1000 physics steps
+                data.ctrl[:6] = HOME_CTRL
+                mujoco.mj_step(model, data)
+                if viewer is not None:
+                    viewer.sync()
 
             done = False
             step = 0
@@ -179,22 +247,41 @@ def main():
                 obs = capture_obs(data, j_qpos_ids, wrist_renderer, wrist_cam_id,
                                   overhead_renderer, overhead_cam_id)
 
-                # 2. Convert to tensors
-                batch = obs_to_tensors(obs, device=device)
+                # 1b. Show camera views (if rendering)
+                if viewer is not None:
+                    big_w = cv2.resize(obs["observation.images.wrist"], (640, 480))
+                    big_o = cv2.resize(obs["observation.images.overhead"], (640, 480))
+                    cv2.imshow("Wrist Camera", cv2.cvtColor(big_w, cv2.COLOR_RGB2BGR))
+                    cv2.imshow("Overhead Camera", cv2.cvtColor(big_o, cv2.COLOR_RGB2BGR))
+                    cv2.waitKey(1)
+
+                # 2. Convert to tensors with normalization
+                batch = obs_to_tensors(obs, state_norm, device=device)
 
                 # 3. Policy inference
                 with torch.inference_mode():
                     action = policy.select_action(batch)  # (1, 6) in deg
 
-                # 4. Execute
-                action_deg = action.squeeze(0).cpu().numpy()  # (6,) deg
-                action_rad = np.deg2rad(action_deg)
+                # 4. Unnormalize then execute with action repeat
+                action_normed = action.squeeze(0).cpu()  # (6,) normalized
+                mean_a = action_norm["mean"].numpy() if hasattr(action_norm["mean"], "numpy") else np.array(action_norm["mean"])
+                std_a = action_norm["std"].numpy() if hasattr(action_norm["std"], "numpy") else np.array(action_norm["std"])
+                action_deg = (action_normed.numpy() * std_a) + mean_a  # (6,) deg
+                action_rad = np.deg2rad(action_deg.astype(np.float64))
                 data.ctrl[:6] = action_rad.astype(np.float64)
 
-                mujoco.mj_step(model, data)
-                if viewer is not None:
-                    viewer.sync()
+                for _ in range(ACTION_REPEAT):
+                    mujoco.mj_step(model, data)
+                    if viewer is not None:
+                        viewer.sync()
                 step += 1
+
+                # Diagnostic: print EE-cube distance every 20 steps
+                if step % 20 == 0:
+                    ee_pos = data.xpos[ids["ee"]]
+                    cube_pos = data.xpos[cube_body_id]
+                    dist = np.linalg.norm(ee_pos - cube_pos)
+                    print(f"  step {step:3d}: EE-cube dist={dist:.4f}m | EE={ee_pos}")
 
                 # 5. Check success
                 if check_success(data, cube_body_id):
