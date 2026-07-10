@@ -84,7 +84,8 @@ python replay.py              # Replay recorded .npz trajectories
 | Program | Description | Data Output |
 |---------|-------------|-------------|
 | `demo_lerobot_record.py` | **★ Recommended** — teleop + LeRobotDataset v3 (dual camera: wrist + overhead), draccus CLI | LeRobot v3 dataset |
-| `eval_policy.py` | Policy evaluation — load trained ACT checkpoint, rollout in MuJoCo | — |
+| `eval_policy.py` | Policy evaluation — load ACT checkpoint, render version (MuJoCo viewer + camera windows) | — |
+| `eval_policy_headless.py` | Policy evaluation — headless (GPU/cloud, optional video recording) | `.mp4` videos |
 | `demo_cam.py` | Wrist camera + MuJoCo viewer, dark theme UI | `.npz` |
 | `demo_basic.py` | Basic teleop — tkinter panel + keyboard | `.npz` |
 | `replay.py` | Trajectory player — scan `recordings/`, pick, replay with physics | — |
@@ -217,6 +218,18 @@ python eval_policy.py --checkpoint ./checkpoint-20000 --episodes 20 --render
 ```
 
 **Training tip:** Rent an RTX 3090/4090 on AutoDL with PyTorch 2.5/2.6 image (not 2.8 — torchcodec compatibility). 20000 steps on 4090 takes ~6 hours.
+
+**Pipeline status (2026-07-10):** 47 episodes, 5000-step ACT training on 4090 scored **40% success rate** with temporal ensemble. Full pipeline verified — record → train → evaluate in MuJoCo.
+
+### Evaluation
+
+```bash
+# Local (with MuJoCo viewer + camera windows)
+python eval_policy.py --checkpoint ./checkpoint-5000/pretrained_model --episodes 10 --render
+
+# Headless (cloud / AutoDL, with video recording)
+python eval_policy_headless.py --checkpoint <path> --episodes 20 --record
+```
 
 ---
 
