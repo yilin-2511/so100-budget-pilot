@@ -144,6 +144,11 @@ def main(cfg: RecordConfig):
             "shape": (cfg.wrist_height, cfg.wrist_width, 3),
             "names": ["height", "width", "channels"],
         },
+        "observation.images.overhead": {
+            "dtype": "video",
+            "shape": (240, 320, 3),
+            "names": ["height", "width", "channels"],
+        },
     }
 
     dataset = None
@@ -237,11 +242,11 @@ def main(cfg: RecordConfig):
         z_now = bool(gks(0x5A) & 0x8000)
         if z_now and not _z_pressed:
             if recording and dataset is not None:
-                dataset.clear_episode_buffer()
+                dataset.clear_episode_buffer(); recording = False
                 btn_record.config(text="⏺ REC", bg=GREEN)
-                lbl_status.config(text="✗ Discarded", fg=RED)
-                recording = False
                 print("[DS] Episode discarded (Z key).")
+                reset_to_home()
+                lbl_status.config(text="Ready", fg=TEXT_DIM)
         _z_pressed = z_now
 
         r_now = bool(gks(0x52) & 0x8000)
@@ -406,8 +411,9 @@ def main(cfg: RecordConfig):
 
     # -- Renderers --
     wrist_cam_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "cam_wrist")
-    record_renderer = mujoco.Renderer(model, cfg.wrist_height, cfg.wrist_width)
-    display_renderer = record_renderer
+    overhead_cam_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "cam_overhead")
+    wrist_renderer = mujoco.Renderer(model, cfg.wrist_height, cfg.wrist_width)
+    overhead_renderer = mujoco.Renderer(model, 240, 320)
 
     # -- Main loop --
     print("=" * 55)
@@ -426,7 +432,7 @@ def main(cfg: RecordConfig):
     last_time = time.perf_counter()
     last_display_update = time.perf_counter()
     last_wrist_display = time.perf_counter()
-    last_record_time = time.perf_counter()
+    last_record_time = 0.0  # 首次录制立即写帧
     _wrist_window_shown = False
     _quit = False
 
@@ -442,7 +448,7 @@ def main(cfg: RecordConfig):
 
         if _wrist_window_shown:
             try:
-                if cv2.getWindowProperty("Wrist Camera (display)", cv2.WND_PROP_VISIBLE) < 1.0:
+                if cv2.getWindowProperty("Wrist Camera", cv2.WND_PROP_VISIBLE) < 1.0:
                     print("[EXIT] Wrist camera window closed."); break
             except Exception: pass
 
@@ -456,6 +462,8 @@ def main(cfg: RecordConfig):
                 toggle_record()
             if cfg.target_episodes > 0 and episode_idx >= cfg.target_episodes:
                 print(f"[REC] Target episodes ({cfg.target_episodes}) reached.")
+                if recording:
+                    toggle_record()  # save current episode before exit
                 if dataset is not None: dataset.finalize()
                 break
 
@@ -498,33 +506,44 @@ def main(cfg: RecordConfig):
         # 6. Physics
         mujoco.mj_step(model, data)
 
-        # 7. Recording
-        if recording and dataset is not None:
-            if loop_start - last_record_time >= 1.0 / cfg.record_fps:
-                record_renderer.update_scene(data, camera=wrist_cam_id)
-                wrist_img = record_renderer.render()
+        # 7. Render both cameras once (~15fps), reuse for recording + display
+        _got_cam_frame = False
+        if loop_start - last_wrist_display > 0.066:
+            try:
+                wrist_renderer.update_scene(data, camera=wrist_cam_id)
+                wrist_img = wrist_renderer.render()
+                overhead_renderer.update_scene(data, camera=overhead_cam_id)
+                overhead_img = overhead_renderer.render()
+                _got_cam_frame = True
+                last_wrist_display = loop_start; _wrist_window_shown = True
+            except Exception as e: print(f"[WARN] Cam render: {e}")
+
+        # 8. Recording — reuse rendered frames, no extra render
+        if _got_cam_frame and recording and dataset is not None:
+            if last_record_time == 0.0 or loop_start - last_record_time >= 1.0 / cfg.record_fps:
                 dataset.add_frame({
                     "observation.state": np.rad2deg(data.qpos[:6]).astype(np.float32),
                     "action": np.rad2deg(data.ctrl[:6]).astype(np.float32),
                     "observation.images.wrist": wrist_img,
+                    "observation.images.overhead": overhead_img,
                     "task": cfg.task,
                 })
                 last_record_time = loop_start
 
-        # 8. Display (100ms)
+        # 8b. EE/Joint display (100ms)
         if loop_start - last_display_update > 0.10:
             try: _update_ee_display(); _update_joint_display(); last_display_update = loop_start
-            except Exception as e: print(f"[WARN] Display: {e}")
+            except Exception: pass
 
-        # 9. Wrist cam display (~15fps)
-        if loop_start - last_wrist_display > 0.066:
+        # 9. Camera display — reuse rendered frames
+        if _got_cam_frame:
             try:
-                display_renderer.update_scene(data, camera=wrist_cam_id)
-                display_img = display_renderer.render()
-                big = cv2.resize(display_img, (960, 720), interpolation=cv2.INTER_NEAREST)
-                cv2.imshow("Wrist Camera (display)", cv2.cvtColor(big, cv2.COLOR_RGB2BGR))
-                cv2.waitKey(1); last_wrist_display = loop_start; _wrist_window_shown = True
-            except Exception as e: print(f"[WARN] Cam: {e}")
+                big = cv2.resize(wrist_img, (640, 480), interpolation=cv2.INTER_NEAREST)
+                cv2.imshow("Wrist Camera", cv2.cvtColor(big, cv2.COLOR_RGB2BGR))
+                big2 = cv2.resize(overhead_img, (640, 480), interpolation=cv2.INTER_NEAREST)
+                cv2.imshow("Overhead Camera", cv2.cvtColor(big2, cv2.COLOR_RGB2BGR))
+                cv2.waitKey(1)
+            except Exception as e: print(f"[WARN] Cam display: {e}")
 
     # Cleanup
     try: cv2.destroyAllWindows()

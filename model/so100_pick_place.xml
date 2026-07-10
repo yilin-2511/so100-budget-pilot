@@ -24,6 +24,10 @@
     <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
 
+    <!-- Fixed overhead camera: bird's-eye view of the full scene -->
+    <camera name="cam_overhead" pos="0 -0.40 0.55" xyaxes="-1 0 0 0 -1 0"
+      fovy="60" resolution="320 240"/>
+
     <!-- Yellow table (robosuite-style: friction for grip) -->
     <body name="table" pos="0 -0.40 0.05">
       <geom type="box" size="0.15 0.20 0.005" material="table_yellow"

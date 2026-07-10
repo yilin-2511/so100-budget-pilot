@@ -2,5 +2,7 @@ __pycache__/
 *.pyc
 recordings/
 datasets/
+outputs/
 checkpoints/
 .DS_Store
+so100_data.tar.gz

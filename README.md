@@ -83,7 +83,8 @@ python replay.py              # Replay recorded .npz trajectories
 
 | Program | Description | Data Output |
 |---------|-------------|-------------|
-| `demo_lerobot_record.py` | **★ Recommended** — teleop + LeRobotDataset v3 (MP4 + Parquet), draccus CLI | LeRobot v3 dataset |
+| `demo_lerobot_record.py` | **★ Recommended** — teleop + LeRobotDataset v3 (dual camera: wrist + overhead), draccus CLI | LeRobot v3 dataset |
+| `eval_policy.py` | Policy evaluation — load trained ACT checkpoint, rollout in MuJoCo | — |
 | `demo_cam.py` | Wrist camera + MuJoCo viewer, dark theme UI | `.npz` |
 | `demo_basic.py` | Basic teleop — tkinter panel + keyboard | `.npz` |
 | `replay.py` | Trajectory player — scan `recordings/`, pick, replay with physics | — |
@@ -94,7 +95,7 @@ python replay.py              # Replay recorded .npz trajectories
 
 ## demo_lerobot_record.py — LeRobot Dataset Recording ★
 
-Keyboard teleop + direct LeRobotDataset v3 recording. Produces MP4 video + Parquet joint data, ready for ACT / Diffusion Policy / VLA training. All parameters configurable via draccus CLI.
+Keyboard teleop + direct LeRobotDataset v3 recording. Records **dual cameras** (wrist + overhead) as video + joint data as Parquet, ready for ACT / Diffusion Policy / VLA training. All parameters configurable via draccus CLI.
 
 ### Quick Run
 
@@ -161,6 +162,7 @@ datasets/so100_sim_N/
 | `observation.state` | (6,) float32 | Joint angles in degrees |
 | `action` | (6,) float32 | Target joint angles in degrees |
 | `observation.images.wrist` | (480, 640, 3) uint8 | Wrist camera RGB |
+| `observation.images.overhead` | (240, 320, 3) uint8 | Fixed overhead camera RGB |
 
 Cube XY randomized ±3cm on each episode reset for data diversity. Format is directly compatible with `lerobot-train`.
 
@@ -184,6 +186,37 @@ lerobot-train \
     --steps 50000 \
     --batch_size 8
 ```
+
+### Training
+
+```bash
+# 1. Record data locally
+python demo_lerobot_record.py                # Record 50+ episodes
+
+# 2. Upload to GPU cloud (AutoDL, Lambda, etc.)
+tar -czf data.tar.gz datasets/so100_sim/
+scp data.tar.gz root@<ip>:/root/autodl-tmp/
+
+# 3. Train ACT on GPU
+pip install 'lerobot[training]'
+lerobot-train \
+  --dataset.repo_id=so100_sim \
+  --dataset.root=/root/autodl-tmp/datasets/so100_sim \
+  --dataset.video_backend=pyav \
+  --policy.type=act \
+  --policy.device=cuda \
+  --batch_size=64 \
+  --steps=20000 \
+  --num_workers=8 \
+  --output_dir=/root/autodl-tmp/outputs/act_so100 \
+  --log_freq=100 \
+  --save_freq=5000
+
+# 4. Download checkpoint & evaluate locally
+python eval_policy.py --checkpoint ./checkpoint-20000 --episodes 20 --render
+```
+
+**Training tip:** Rent an RTX 3090/4090 on AutoDL with PyTorch 2.5/2.6 image (not 2.8 — torchcodec compatibility). 20000 steps on 4090 takes ~6 hours.
 
 ---
 
