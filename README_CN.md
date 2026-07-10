@@ -83,7 +83,9 @@ python replay.py              # 回放已录制 .npz 轨迹
 
 | 程序 | 说明 | 数据输出 |
 |------|------|----------|
-| `demo_lerobot_record.py` | **★ 推荐** — 遥操作 + LeRobotDataset v3 录制（MP4 + Parquet），draccus CLI | LeRobot v3 数据集 |
+| `demo_lerobot_record.py` | **★ 推荐** — 遥操作 + LeRobotDataset v3 录制（双路相机：腕部 + 俯视），draccus CLI | LeRobot v3 数据集 |
+| `eval_policy.py` | 策略评估 — 加载 ACT checkpoint，渲染版（MuJoCo 窗口 + 相机画面） | — |
+| `eval_policy_headless.py` | 策略评估 — 无头版（GPU/云，可选视频录制） | `.mp4` 视频 |
 | `demo_cam.py` | 腕部相机 + MuJoCo 窗口，暗色主题 UI | `.npz` |
 | `demo_basic.py` | 基础遥操作 — tkinter 面板 + 键盘 | `.npz` |
 | `replay.py` | 轨迹回放 — 扫描 `recordings/`，列表选择后物理回放 | — |
@@ -183,6 +185,52 @@ lerobot-train \
     --output_dir outputs/so100_act \
     --steps 50000 \
     --batch_size 8
+```
+
+### 训练
+
+```bash
+# 1. 本地录制数据
+python demo_lerobot_record.py                # 录制 50+ episodes
+
+# 2. 上传到 GPU 云（AutoDL 等）
+tar -czf data.tar.gz datasets/so100_sim/
+scp data.tar.gz root@<ip>:/root/autodl-tmp/
+
+# 3. GPU 训练 ACT
+pip install 'lerobot[training]'
+lerobot-train \
+  --dataset.repo_id=so100_sim \
+  --dataset.root=/root/autodl-tmp/datasets/so100_sim \
+  --dataset.video_backend=pyav \
+  --policy.type=act \
+  --policy.device=cuda \
+  --batch_size=64 \
+  --steps=20000 \
+  --num_workers=8 \
+  --output_dir=/root/autodl-tmp/outputs/act_so100 \
+  --log_freq=100 \
+  --save_freq=5000
+
+# 4. 下载 checkpoint + 本地评估
+python eval_policy.py --checkpoint ./checkpoint-20000 --episodes 20 --render
+```
+
+**训练建议：** 在 AutoDL 租 RTX 3090/4090，选 PyTorch 2.5/2.6 镜像（不要 2.8 — torchcodec 兼容性问题）。20000 步约 6 小时。
+
+**Pipeline 状态 (2026-07-10)：** 47 episodes，5000 步 ACT 训练，4090 上红色方块成功率 40%（带 temporal ensemble）。蓝色方块泛化测试达 **70%**。完整 pipeline 验证通过——录制 → 训练 → MuJoCo 评估。
+
+### 评估
+
+```bash
+# 本地（带 MuJoCo 窗口 + 相机画面）
+python eval_policy.py --checkpoint ./checkpoint-5000/pretrained_model --episodes 10 --render
+
+# 无头（云端 / 带视频录制）
+python eval_policy_headless.py --checkpoint <path> --episodes 20 --record
+
+# 泛化测试（换方块颜色）
+python eval_policy_headless.py --checkpoint <path> --episodes 20 --cube_color blue --record
 ```
 
 ---
