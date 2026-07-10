@@ -128,6 +128,9 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--cube_random_xy", type=float, default=0.03)
     parser.add_argument("--record", action="store_true", help="Save rollout videos to recordings/")
+    parser.add_argument("--cube_color", type=str, default="red",
+                        choices=["red", "blue", "green", "yellow", "white", "black"],
+                        help="Cube color for generalization test (default: red)")
     args = parser.parse_args()
 
     np.random.seed(args.seed)
@@ -138,6 +141,19 @@ def main():
     model, data, ids = init_scene()
     cube_body_id = ids["cube"]
     wrist_cam_id = ids["wrist_cam"]
+
+    COLORS = {
+        "red": [0.95, 0.15, 0.15, 1.0],
+        "blue": [0.15, 0.35, 0.85, 1.0],
+        "green": [0.15, 0.85, 0.35, 1.0],
+        "yellow": [0.95, 0.85, 0.15, 1.0],
+        "white": [0.95, 0.95, 0.95, 1.0],
+        "black": [0.15, 0.15, 0.15, 1.0],
+    }
+    if args.cube_color != "red":
+        cube_mat_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_MATERIAL, "cube_red")
+        model.mat_rgba[cube_mat_id] = COLORS[args.cube_color]
+        print(f"[SCENE] Cube color: {args.cube_color.upper()} (generalization test)")
     overhead_cam_id = ids["overhead_cam"]
 
     wrist_renderer = mujoco.Renderer(model, 480, 640)
@@ -145,7 +161,8 @@ def main():
     scene_renderer = mujoco.Renderer(model, 480, 640) if args.record else None
     if args.record:
         import cv2
-        os.makedirs("recordings", exist_ok=True)
+        run_id = time.strftime("%m%d_%H%M%S")
+        os.makedirs(f"recordings/{run_id}", exist_ok=True)
 
     policy, state_norm, action_norm = load_policy(args.checkpoint, device=device)
 
@@ -161,7 +178,7 @@ def main():
         out = None
         if args.record:
             fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-            out = cv2.VideoWriter(f"recordings/ep_{ep:03d}.mp4", fourcc, 10, (640, 480))
+            out = cv2.VideoWriter(f"recordings/{run_id}/ep_{ep:03d}.mp4", fourcc, 10, (640, 480))
 
         # 2-second delay: arm stays at home, cube fully settles
         for _ in range(int(2.0 / 0.002)):
