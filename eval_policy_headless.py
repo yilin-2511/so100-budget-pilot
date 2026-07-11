@@ -38,13 +38,13 @@ def init_scene():
     return model, data, ids
 
 
-def reset_episode(model, data, randomize_xy=0.03):
+def reset_episode(model, data, source_xy, randomize_xy=0.03):
+    """Reset cube to source_xy position ± random offset."""
     mujoco.mj_resetData(model, data)
     cube_qpos = data.qpos[6:13].copy()
     mujoco.mj_resetDataKeyframe(model, data, 0)
-    if randomize_xy > 0:
-        cube_qpos[0] += np.random.uniform(-randomize_xy, randomize_xy)
-        cube_qpos[1] += np.random.uniform(-randomize_xy, randomize_xy)
+    cube_qpos[0] = source_xy[0] + np.random.uniform(-randomize_xy, randomize_xy)
+    cube_qpos[1] = source_xy[1] + np.random.uniform(-randomize_xy, randomize_xy)
     data.qpos[6:13] = cube_qpos
     mujoco.mj_forward(model, data)
     for _ in range(SETTLE_STEPS):
@@ -52,8 +52,8 @@ def reset_episode(model, data, randomize_xy=0.03):
         mujoco.mj_step(model, data)
 
 
-def check_success(data, cube_body_id):
-    target_xy = np.array([-0.08, -0.48])
+def check_success(data, cube_body_id, target_xy):
+    """Check if cube is within 2.5cm of target_xy."""
     return np.linalg.norm(data.xpos[cube_body_id][:2] - target_xy) < 0.025
 
 
@@ -131,6 +131,8 @@ def main():
     parser.add_argument("--cube_color", type=str, default="red",
                         choices=["red", "blue", "green", "yellow", "white", "black"],
                         help="Cube color for generalization test (default: red)")
+    parser.add_argument("--swap_zones", action="store_true",
+                        help="Swap source and target zones (generalization test)")
     args = parser.parse_args()
 
     np.random.seed(args.seed)
@@ -154,6 +156,15 @@ def main():
         cube_mat_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_MATERIAL, "cube_red")
         model.mat_rgba[cube_mat_id] = COLORS[args.cube_color]
         print(f"[SCENE] Cube color: {args.cube_color.upper()} (generalization test)")
+
+    # Zone positions (swap for generalization test)
+    if args.swap_zones:
+        source_xy = np.array([-0.08, -0.48])  # cube on right side
+        target_xy = np.array([0.08, -0.32])    # target on left side
+        print("[SCENE] Zones SWAPPED: source=right, target=left")
+    else:
+        source_xy = np.array([0.08, -0.32])
+        target_xy = np.array([-0.08, -0.48])
     overhead_cam_id = ids["overhead_cam"]
 
     wrist_renderer = mujoco.Renderer(model, 480, 640)
@@ -171,7 +182,7 @@ def main():
     t_start = time.perf_counter()
 
     for ep in range(args.episodes):
-        reset_episode(model, data, randomize_xy=args.cube_random_xy)
+        reset_episode(model, data, source_xy, randomize_xy=args.cube_random_xy)
         policy.reset()
 
         # Recording per episode
@@ -203,7 +214,7 @@ def main():
                 scene_renderer.update_scene(data, camera=overhead_cam_id)
                 out.write(cv2.cvtColor(scene_renderer.render(), cv2.COLOR_RGB2BGR))
             step += 1
-            if check_success(data, cube_body_id):
+            if check_success(data, cube_body_id, target_xy):
                 done = True
                 successes.append(True)
                 step_counts.append(step)
